@@ -9,27 +9,13 @@ from typing import Callable, Optional
 import grpc
 import torch
 
-from lerobot.common.transport import (
+from lerobot.common.robot_devices.robots.utils import make_robot
+from lerobot.scripts.server import (
     async_inference_pb2,  # type: ignore
     async_inference_pb2_grpc,  # type: ignore
 )
-from lerobot.common.transport.utils import send_bytes_in_chunks
-from lerobot.configs.policies import PreTrainedConfig
-from lerobot.scripts.server.configs import RobotClientConfig
-from lerobot.scripts.server.helpers import (
-    Action,
-    FPSTracker,
-    Observation,
-    RawObservation,
-    TimedAction,
-    TimedObservation,
-    TinyPolicyConfig,
-    get_logger,
-    make_robot,
-    map_robot_keys_to_lerobot_features,
-    validate_robot_cameras_for_policy,
-    visualize_action_queue_size,
-)
+from lerobot.scripts.server.constants import environment_dt, idle_wait
+from lerobot.scripts.server.helpers import TimedAction, TimedObservation, TinyPolicyConfig, setup_logging
 
 
 class RobotClient:
