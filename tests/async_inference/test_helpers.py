@@ -140,7 +140,11 @@ def test_timed_data_deserialization_data_getters():
     ta_in = TimedAction(timestamp=ts, action=original_action, timestep=13)
 
     # Serialize → bytes → deserialize
+<<<<<<< HEAD
     ta_bytes = pickle.dumps(ta_in)  # nosec
+=======
+    ta_bytes = pickle.dumps(ta_in)
+>>>>>>> c1ec9628 (fix: refactoring)
     ta_out: TimedAction = pickle.loads(ta_bytes)  # nosec B301
 
     # Identity & content checks
@@ -152,13 +156,23 @@ def test_timed_data_deserialization_data_getters():
     # TimedObservation
     # ------------------------------------------------------------------
     obs_dict = {"observation.state": torch.arange(4).float()}
+<<<<<<< HEAD
     to_in = TimedObservation(timestamp=ts, observation=obs_dict, timestep=7, must_go=True)
 
     to_bytes = pickle.dumps(to_in)  # nosec
+=======
+    to_in = TimedObservation(timestamp=ts, observation=obs_dict, timestep=7, transfer_state=2, must_go=True)
+
+    to_bytes = pickle.dumps(to_in)
+>>>>>>> c1ec9628 (fix: refactoring)
     to_out: TimedObservation = pickle.loads(to_bytes)  # nosec B301
 
     assert math.isclose(to_out.get_timestamp(), ts, rel_tol=0, abs_tol=1e-6)
     assert to_out.get_timestep() == 7
+<<<<<<< HEAD
+=======
+    assert to_out.transfer_state == 2
+>>>>>>> c1ec9628 (fix: refactoring)
     assert to_out.must_go is True
     assert to_out.get_observation().keys() == obs_dict.keys()
     torch.testing.assert_close(to_out.get_observation()["observation.state"], obs_dict["observation.state"])
@@ -170,6 +184,7 @@ def test_timed_data_deserialization_data_getters():
 
 
 def _make_obs(state: torch.Tensor) -> TimedObservation:
+<<<<<<< HEAD
     """Create a TimedObservation with raw robot observation format."""
     return TimedObservation(
         timestamp=time.time(),
@@ -179,12 +194,18 @@ def _make_obs(state: torch.Tensor) -> TimedObservation:
             "wrist": state[2].item() if len(state) > 2 else 0.0,
             "gripper": state[3].item() if len(state) > 3 else 0.0,
         },
+=======
+    return TimedObservation(
+        timestamp=time.time(),
+        observation={"observation.state": state},
+>>>>>>> c1ec9628 (fix: refactoring)
         timestep=0,
     )
 
 
 def test_observations_similar_true():
     """Distance below atol → observations considered similar."""
+<<<<<<< HEAD
     # Create mock lerobot features for the similarity check
     lerobot_features = {
         "observation.state": {
@@ -457,3 +478,11 @@ def test_image_processing_pipeline_preserves_content():
     corner_val = processed_img[:, 5, 5].mean()  # Corner
 
     assert center_val > corner_val, "Image processing should preserve recognizable patterns"
+=======
+    obs1 = _make_obs(torch.zeros(6))
+    obs2 = _make_obs(0.5 * torch.ones(6))
+    assert observations_similar(obs1, obs2, atol=2.0)
+
+    obs3 = _make_obs(2.0 * torch.ones(6))
+    assert not observations_similar(obs1, obs3, atol=2.0)
+>>>>>>> c1ec9628 (fix: refactoring)
