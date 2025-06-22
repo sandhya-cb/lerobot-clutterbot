@@ -56,6 +56,8 @@ class PolicyServer(async_inference_pb2_grpc.AsyncInferenceServicer):
         self._predicted_timesteps = set()
         self._predicted_observations = Queue(maxsize=1)
 
+        self.running = True
+
     def Ready(self, request, context):  # noqa: N802
         client_id = context.peer()
         self.logger.info(f"Client {client_id} connected and ready")
@@ -175,17 +177,10 @@ class PolicyServer(async_inference_pb2_grpc.AsyncInferenceServicer):
                 f"Total time: {(inference_time + serialize_time) * 1000:.2f}ms"
             )
 
-            self.logger.debug(
-                f"Action chunk #{obs.get_timestep()} generated | "
-                f"Inference time: {inference_time:.2f}s |"
-                f"Serialize time: {serialize_time:.2f}s |"
-                f"Total time: {inference_time + serialize_time:.2f}s"
-            )
-
-            yield action
-
-        except Empty:  # no observation added to queue in obs_queue_timeout
-            return async_inference_pb2.Empty()
+                yield action
+            else:
+                self.logger.warning("No observation in queue yet!")
+                time.sleep(self.config.idle_wait)
 
         except Exception as e:
             self.logger.error(f"Error in StreamActions: {e}")
@@ -236,22 +231,54 @@ class PolicyServer(async_inference_pb2_grpc.AsyncInferenceServicer):
         t_0 + i*environment_dt for i in range(len(action_chunk))
         """
         return [
-            TimedAction(timestamp=t_0 + i * self.config.environment_dt, timestep=i_0 + i, action=action)
+            TimedAction(t_0 + i * self.config.environment_dt, action, i_0 + i)
             for i, action in enumerate(action_chunk)
         ]
 
-    def _prepare_observation(self, observation_t: TimedObservation) -> Observation:
-        """
-        Prepare observation, ready for policy inference.
-        E.g.: To keep observation sampling rate high (and network packet tiny) we send int8 [0,255] images from the
-        client and then convert them to float32 [0,1] images here, before running inference.
-        """
-        # RawObservation from robot.get_observation() - wrong keys, wrong dtype, wrong image shape
-        observation: Observation = raw_observation_to_observation(
-            observation_t.get_observation(),
-            self.lerobot_features,
-            self.policy.config.image_features,
-            self.device,
+    @torch.no_grad()
+    def _run_act_policy(self, observation: dict[str, torch.Tensor]) -> torch.Tensor:
+        """Run ACT-like policies"""
+        start_time = time.perf_counter()
+
+        # prepare observation for policy forward pass
+        batch = self.policy.normalize_inputs(observation)
+        normalize_time = time.perf_counter()
+        self.logger.debug(f"Observation normalization time: {normalize_time - start_time:.6f}s")
+
+        if self.policy.config.image_features:
+            batch = dict(batch)  # shallow copy so that adding a key doesn't modify the original
+            batch["observation.images"] = [batch[key] for key in self.policy.config.image_features]
+            prep_time = time.perf_counter()
+            self.logger.debug(f"Observation image preparation time: {prep_time - normalize_time:.6f}s")
+
+        # forward pass outputs up to policy.config.n_action_steps != actions_per_chunk
+        actions = self.policy.model(batch)[0][:, : self.config.actions_per_chunk]
+
+        actions = self.policy.unnormalize_outputs({"action": actions})["action"]
+
+        end_time = time.perf_counter()
+        self.logger.info(f"[ACT] Action chunk generation total time: {end_time - start_time:.6f}s")
+
+        return actions
+
+    @torch.no_grad()
+    def _run_pi0_policy(self, observation: dict[str, torch.Tensor]) -> torch.Tensor:
+        """Run PI0-like policies"""
+        raise NotImplementedError("PI0 policy not implemented yet")
+
+    @torch.no_grad()
+    def _run_smolvla_policy(
+        self, observation: dict[str, torch.Tensor], noise: Optional[torch.Tensor] = None
+    ) -> torch.Tensor:
+        """Run smolvla-like policies"""
+        observation = self.policy.normalize_inputs(observation)
+
+        images, img_masks = self.policy.prepare_images(observation)
+        state = self.policy.prepare_state(observation)
+        lang_tokens, lang_masks = self.policy.prepare_language(observation)
+
+        actions = self.policy.model.sample_actions(
+            images, img_masks, lang_tokens, lang_masks, state, noise=noise
         )
         # processed Observation - right keys, right dtype, right image shape
 
@@ -273,14 +300,15 @@ class PolicyServer(async_inference_pb2_grpc.AsyncInferenceServicer):
         self.last_processed_obs: TimedObservation = observation_t
 
         """2. Get action chunk"""
-        start_time = time.perf_counter()
-        action_tensor = self._get_action_chunk(observation)
-        inference_time = time.perf_counter() - start_time
+        action_tensor = self._get_action_chunk(observation, self.policy_type)
 
         """3. Post-inference processing"""
         start_time = time.perf_counter()
         # Move to CPU before serializing
         action_tensor = action_tensor.cpu().squeeze(0)
+
+        post_inference_time = time.perf_counter()
+        self.logger.debug(f"Post-inference processing start: {post_inference_time - prep_time:.6f}s")
 
         action_chunk = self._time_action_chunk(
             observation_t.get_timestamp(), list(action_tensor), observation_t.get_timestep()
@@ -314,14 +342,14 @@ class PolicyServer(async_inference_pb2_grpc.AsyncInferenceServicer):
         self.logger.info("Server stopping...")
 
 
-def serve(config: Optional[PolicyServerConfig] = None, host: str = "localhost", port: int = 8080):
+def serve(config: Optional[PolicyServerConfig] = None):
     """Start the PolicyServer with the given configuration.
 
     Args:
         config: PolicyServerConfig instance. If None, uses default configuration.
     """
     if config is None:
-        config = PolicyServerConfig(host=host, port=port)
+        config = PolicyServerConfig()
 
     # Create the server instance first
     policy_server = PolicyServer(config)
@@ -330,9 +358,8 @@ def serve(config: Optional[PolicyServerConfig] = None, host: str = "localhost", 
     server = grpc.server(futures.ThreadPoolExecutor(max_workers=4))
     async_inference_pb2_grpc.add_AsyncInferenceServicer_to_server(policy_server, server)
     server.add_insecure_port(f"{config.host}:{config.port}")
-
-    policy_server.logger.info(f"PolicyServer started on {config.host}:{config.port}")
     server.start()
+    policy_server.logger.info(f"PolicyServer started on {config.host}:{config.port}")
 
     try:
         server.wait_for_termination()
@@ -344,4 +371,4 @@ def serve(config: Optional[PolicyServerConfig] = None, host: str = "localhost", 
 
 
 if __name__ == "__main__":
-    serve()  # pass a
+    serve()  # use default configuration

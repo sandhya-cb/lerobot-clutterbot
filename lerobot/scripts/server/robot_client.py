@@ -14,7 +14,7 @@ from lerobot.scripts.server import (
     async_inference_pb2,  # type: ignore
     async_inference_pb2_grpc,  # type: ignore
 )
-from lerobot.scripts.server.constants import environment_dt, idle_wait
+from lerobot.scripts.server.configs import RobotClientConfig
 from lerobot.scripts.server.helpers import TimedAction, TimedObservation, TinyPolicyConfig, setup_logging
 
 
@@ -26,6 +26,7 @@ class RobotClient:
     def __init__(self, config: RobotClientConfig):
         # Store configuration
         self.config = config
+<<<<<<< HEAD
 
         # Use environment variable if server_address is not provided in config
         self.server_address = config.server_address
@@ -34,6 +35,17 @@ class RobotClient:
             config.policy_type, config.pretrained_name_or_path, config.lerobot_features, config.policy_device
         )
         self.channel = grpc.insecure_channel(self.server_address)
+=======
+        
+        # Use environment variable if server_address is not provided in config
+        server_address = config.server_address
+        if not server_address:
+            server_address = os.getenv("SERVER_ADDRESS", "localhost:8080")
+            self.logger.info(f"No server address provided, using default address: {server_address}")
+
+        self.policy_config = TinyPolicyConfig(config.policy_type, config.pretrained_name_or_path, config.policy_device)
+        self.channel = grpc.insecure_channel(server_address)
+>>>>>>> 26005e1f (fix: adding configs for async inference)
         self.stub = async_inference_pb2_grpc.AsyncInferenceStub(self.channel)
         self.logger.info(f"Initializing client to connect to server at {self.server_address}")
 
@@ -48,12 +60,23 @@ class RobotClient:
         self.action_queue = Queue()
         self.start_barrier = threading.Barrier(2)  # 2 threads: action receiver, control loop
 
+<<<<<<< HEAD
         # FPS measurement
         self.fps_tracker = FPSTracker(target_fps=self.config.fps)
 
         self.robot = self.config.robot
         self.robot.connect()
 
+=======
+        start_time = time.time()
+        self.robot = make_robot(config.robot)
+        self.robot.connect()
+
+        connect_time = time.time()
+        self.logger.info(f"Robot connection time: {connect_time - start_time:.4f}s")
+
+        time.sleep(config.camera_activation_delay)  # small sleep waiting for cameras to activate
+>>>>>>> 26005e1f (fix: adding configs for async inference)
         self.logger.info("Robot connected and ready")
 
         self.must_go = True  # does the observation qualify for direct processing on the policy server?
@@ -263,6 +286,11 @@ class RobotClient:
 
             except grpc.RpcError as e:
                 self.logger.error(f"Error receiving actions: {e}")
+<<<<<<< HEAD
+=======
+                # Avoid tight loop on action receiver error
+                time.sleep(self.config.camera_activation_delay)
+>>>>>>> 26005e1f (fix: adding configs for async inference)
 
     def _actions_available(self):
         """Check if there are actions available in the queue"""
@@ -301,7 +329,72 @@ class RobotClient:
 
         return timed_action.get_action()
 
-    def control_loop_action(self) -> Optional[Action]:
+        warnings.warn("This method is deprecated! Will be removed soon!", stacklevel=2)
+        # Wait at barrier for synchronized start
+        self.start_barrier.wait()
+        time.sleep(self.config.camera_activation_delay)  # wait for observation capture to start
+
+        self.logger.info("Action execution thread starting")
+
+        while self.running:
+            # constantly monitor the size of the action queue
+            self.available_actions_size.append(self.action_queue.qsize())
+
+            if self._actions_available():
+                timed_action = self._get_next_action()
+                self._perform_action(timed_action)
+
+                time.sleep(self.config.environment_dt)
+
+            else:
+                self.logger.debug("No action available | Sleeping")
+                time.sleep(self.config.camera_activation_delay)
+
+    def stream_observations(self, get_observation_fn):
+        """Continuously stream observations to the server"""
+        import warnings
+
+        warnings.warn("This method is deprecated! Will be removed soon!", stacklevel=2)
+
+        # Wait at barrier for synchronized start
+        self.start_barrier.wait()
+        self.logger.info("Observation streaming thread starting")
+
+        while self.running:
+            try:
+                # Get serialized observation bytes from the function
+                start_time = time.time()
+                observation = get_observation_fn()
+                obs_capture_time = time.time() - start_time
+
+                self.logger.debug(f"Capturing observation took {obs_capture_time:.6f}s")
+
+                if not hasattr(self, "last_obs_timestamp"):
+                    self.last_obs_timestamp = observation.get_timestamp()
+
+                obs_timestep, obs_timestamp = observation.get_timestep(), observation.get_timestamp()
+                self.logger.info(
+                    f"Ts={obs_timestamp} | "
+                    f"Captured observation #{obs_timestep} | "
+                    f"1/DeltaTs (~frequency)={1 / (1e-6 + obs_timestamp - self.last_obs_timestamp):.6f}"
+                )
+
+                self.last_obs_timestamp = obs_timestamp
+
+                # Set appropriate transfer state
+                if obs_timestep == 0:
+                    state = async_inference_pb2.TRANSFER_BEGIN
+                else:
+                    state = async_inference_pb2.TRANSFER_MIDDLE
+
+                time.sleep(self.config.environment_dt)
+                self.send_observation(observation, state)
+
+            except Exception as e:
+                self.logger.error(f"Error in observation sender: {e}")
+                time.sleep(self.config.camera_activation_delay)
+
+    def control_loop_action(self):
         """Reading and performing actions in local queue"""
         self.action_queue_size.append(self.action_queue.qsize())
 
@@ -378,11 +471,59 @@ class RobotClient:
 
             self.logger.warning(f"Control loop (ms): {(time.perf_counter() - control_loop_start) * 1000:.2f}")
             # Dynamically adjust sleep time to maintain the desired control frequency
+<<<<<<< HEAD
             time.sleep(max(0, self.config.environment_dt - (time.perf_counter() - control_loop_start)))
 
             control_loops += 1
 
         return _captured_observation, _performed_action
+=======
+            time.sleep(max(0, self.config.environment_dt - (time.time() - control_loop_start)))
+            control_loops += 1
+
+
+def async_client(task_instruction: str, verbose: int = 0):
+    config = RobotClientConfig()
+    client = RobotClient(config)
+
+    if client.start():
+        # Function to get observations from the robot
+        def get_observation():
+            observation_content = None
+            observation_content = client.robot.capture_observation()
+
+            observation_content["task"] = [task_instruction]
+
+            observation = TimedObservation(
+                timestamp=time.time(), observation=observation_content, timestep=max(client.latest_action, 0)
+            )
+
+            return observation
+
+        client.logger.info("Starting all threads...")
+
+        # Create and start action receiver thread
+        action_receiver_thread = threading.Thread(target=client.receive_actions)
+        action_receiver_thread.daemon = True
+
+        control_loop_thread = threading.Thread(target=client.control_loop, args=(get_observation,))
+        control_loop_thread.daemon = True
+
+        # Start all threads
+        action_receiver_thread.start()
+        control_loop_thread.start()
+
+        try:
+            while client.running:
+                time.sleep(client.config.camera_activation_delay)
+
+        except KeyboardInterrupt:
+            pass
+
+        finally:
+            client.stop()
+            client.logger.info("Client stopped")
+>>>>>>> 26005e1f (fix: adding configs for async inference)
 
 
 def parse_args():
@@ -423,6 +564,7 @@ def parse_args():
         help="Robot name, as per the `make_robot` function (default: so100)",
     )
 
+<<<<<<< HEAD
     parser.add_argument(
         "--robot-port",
         type=str,
@@ -436,6 +578,28 @@ def parse_args():
         default="follower_so100",
         help="ID of the robot to connect to (default: follower_so100)",
     )
+=======
+    args = parser.parse_args()
+
+    # Create config from parsed arguments
+    config = RobotClientConfig(
+        server_address=args.server_address,
+        policy_type=args.policy_type,
+        pretrained_name_or_path=args.pretrained_name_or_path,
+        policy_device=args.policy_device,
+        chunk_size_threshold=args.chunk_size_threshold,
+        robot=args.robot,
+    )
+
+    # Create client with config
+    client = RobotClient(config)
+
+    if client.start():
+        # Function to get observations from the robot
+        def get_observation():
+            observation_content = None
+            observation_content = client.robot.capture_observation()
+>>>>>>> 26005e1f (fix: adding configs for async inference)
 
     parser.add_argument(
         "--robot-cameras",
@@ -507,7 +671,11 @@ def async_client(args: argparse.Namespace):
 
         try:
             while client.running:
+<<<<<<< HEAD
                 time.sleep(0.1)  # tiny sleep to avoid tight loop in main thread
+=======
+                time.sleep(client.config.camera_activation_delay)
+>>>>>>> 26005e1f (fix: adding configs for async inference)
 
         except KeyboardInterrupt:
             client.stop()
