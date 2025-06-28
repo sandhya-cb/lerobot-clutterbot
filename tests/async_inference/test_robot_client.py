@@ -45,6 +45,8 @@ def robot_client():
 
     test_config = MockRobotConfig()
 
+    lerobot_features = map_robot_keys_to_lerobot_features(robot)
+
     # gRPC channel is not actually used in tests, so using a dummy address
     test_config = RobotClientConfig(
         robot=test_config,
