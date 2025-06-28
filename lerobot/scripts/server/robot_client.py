@@ -14,9 +14,25 @@ from lerobot.scripts.server import (
     async_inference_pb2,  # type: ignore
     async_inference_pb2_grpc,  # type: ignore
 )
+from lerobot.common.transport.utils import send_bytes_in_chunks
+from lerobot.configs.policies import PreTrainedConfig
 from lerobot.scripts.server.configs import RobotClientConfig
-from lerobot.scripts.server.helpers import TimedAction, TimedObservation, TinyPolicyConfig, setup_logging
+from lerobot.scripts.server.helpers import (
+    Action,
+    FPSTracker,
+    RawObservation,
+    Observation,
+    TimedAction,
+    TimedObservation,
+    TinyPolicyConfig,
+    make_robot,
+    map_robot_keys_to_lerobot_features,
+    get_logger,
+    validate_robot_cameras_for_policy,
+    visualize_action_queue_size,
+)
 
+import logging
 
 class RobotClient:
     prefix = "robot_client"
@@ -26,16 +42,6 @@ class RobotClient:
     def __init__(self, config: RobotClientConfig):
         # Store configuration
         self.config = config
-<<<<<<< HEAD
-
-        # Use environment variable if server_address is not provided in config
-        self.server_address = config.server_address
-
-        self.policy_config = TinyPolicyConfig(
-            config.policy_type, config.pretrained_name_or_path, config.lerobot_features, config.policy_device
-        )
-        self.channel = grpc.insecure_channel(self.server_address)
-=======
         
         # Use environment variable if server_address is not provided in config
         server_address = config.server_address
@@ -45,7 +51,6 @@ class RobotClient:
 
         self.policy_config = TinyPolicyConfig(config.policy_type, config.pretrained_name_or_path, config.policy_device)
         self.channel = grpc.insecure_channel(server_address)
->>>>>>> 26005e1f (fix: adding configs for async inference)
         self.stub = async_inference_pb2_grpc.AsyncInferenceStub(self.channel)
         self.logger.info(f"Initializing client to connect to server at {self.server_address}")
 
@@ -60,14 +65,6 @@ class RobotClient:
         self.action_queue = Queue()
         self.start_barrier = threading.Barrier(2)  # 2 threads: action receiver, control loop
 
-<<<<<<< HEAD
-        # FPS measurement
-        self.fps_tracker = FPSTracker(target_fps=self.config.fps)
-
-        self.robot = self.config.robot
-        self.robot.connect()
-
-=======
         start_time = time.time()
         self.robot = make_robot(config.robot)
         self.robot.connect()
@@ -76,7 +73,6 @@ class RobotClient:
         self.logger.info(f"Robot connection time: {connect_time - start_time:.4f}s")
 
         time.sleep(config.camera_activation_delay)  # small sleep waiting for cameras to activate
->>>>>>> 26005e1f (fix: adding configs for async inference)
         self.logger.info("Robot connected and ready")
 
         self.must_go = True  # does the observation qualify for direct processing on the policy server?
@@ -286,11 +282,8 @@ class RobotClient:
 
             except grpc.RpcError as e:
                 self.logger.error(f"Error receiving actions: {e}")
-<<<<<<< HEAD
-=======
                 # Avoid tight loop on action receiver error
                 time.sleep(self.config.camera_activation_delay)
->>>>>>> 26005e1f (fix: adding configs for async inference)
 
     def _actions_available(self):
         """Check if there are actions available in the queue"""
@@ -471,13 +464,6 @@ class RobotClient:
 
             self.logger.warning(f"Control loop (ms): {(time.perf_counter() - control_loop_start) * 1000:.2f}")
             # Dynamically adjust sleep time to maintain the desired control frequency
-<<<<<<< HEAD
-            time.sleep(max(0, self.config.environment_dt - (time.perf_counter() - control_loop_start)))
-
-            control_loops += 1
-
-        return _captured_observation, _performed_action
-=======
             time.sleep(max(0, self.config.environment_dt - (time.time() - control_loop_start)))
             control_loops += 1
 
@@ -523,7 +509,6 @@ def async_client(task_instruction: str, verbose: int = 0):
         finally:
             client.stop()
             client.logger.info("Client stopped")
->>>>>>> 26005e1f (fix: adding configs for async inference)
 
 
 def parse_args():
@@ -564,21 +549,6 @@ def parse_args():
         help="Robot name, as per the `make_robot` function (default: so100)",
     )
 
-<<<<<<< HEAD
-    parser.add_argument(
-        "--robot-port",
-        type=str,
-        default="/dev/tty.usbmodem585A0076841",
-        help="Port on which to read/write robot joint status (e.g., '/dev/tty.usbmodem575E0031751'). Find your port with lerobot/find_port.py",
-    )
-
-    parser.add_argument(
-        "--robot-id",
-        type=str,
-        default="follower_so100",
-        help="ID of the robot to connect to (default: follower_so100)",
-    )
-=======
     args = parser.parse_args()
 
     # Create config from parsed arguments
@@ -599,7 +569,6 @@ def parse_args():
         def get_observation():
             observation_content = None
             observation_content = client.robot.capture_observation()
->>>>>>> 26005e1f (fix: adding configs for async inference)
 
     parser.add_argument(
         "--robot-cameras",
@@ -643,7 +612,6 @@ def async_client(args: argparse.Namespace):
     client = RobotClient(config)
 
     if client.start():
-
         def make_observation() -> TimedObservation:
             # Function to make observations starting from the robot's get_observation() method
             observation: RawObservation = client.robot.get_observation()
@@ -671,11 +639,7 @@ def async_client(args: argparse.Namespace):
 
         try:
             while client.running:
-<<<<<<< HEAD
-                time.sleep(0.1)  # tiny sleep to avoid tight loop in main thread
-=======
                 time.sleep(client.config.camera_activation_delay)
->>>>>>> 26005e1f (fix: adding configs for async inference)
 
         except KeyboardInterrupt:
             client.stop()

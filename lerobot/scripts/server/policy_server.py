@@ -23,8 +23,12 @@ from lerobot.scripts.server.helpers import (
     TinyPolicyConfig,
     get_logger,
     observations_similar,
+    get_logger,
     raw_observation_to_observation,
-    receive_bytes_in_chunks,
+    Observation,
+    RawObservation,
+    Action,
+    receive_bytes_in_chunks
 )
 
 
@@ -44,6 +48,10 @@ class PolicyServer(async_inference_pb2_grpc.AsyncInferenceServicer):
     @property
     def running(self):
         return self._running_event.is_set()
+    
+    @property
+    def policy_image_features(self):
+        return self.policy.config.image_features
 
     @property
     def policy_image_features(self):

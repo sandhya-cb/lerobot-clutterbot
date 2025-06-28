@@ -1,4 +1,3 @@
-import argparse
 import io
 import json
 import logging
@@ -32,6 +31,12 @@ from lerobot.common.utils.utils import init_logging
 from lerobot.configs.types import PolicyFeature
 from lerobot.scripts.server.constants import supported_robots
 
+from lerobot.common.transport.utils import bytes_buffer_size
+from lerobot.common.transport import async_inference_pb2
+import io
+from typing import Any
+
+Observation = dict[str, torch.Tensor]
 Action = torch.Tensor
 ActionChunk = torch.Tensor
 
@@ -43,6 +48,9 @@ LeRobotObservation = dict[str, torch.Tensor]
 
 # observation, ready for policy inference (image keys resized)
 Observation = dict[str, torch.Tensor]
+
+# Additional type to distinguish between the raw observation and the observations ready for inference
+RawObservation = dict[str, torch.Tensor]
 
 
 def visualize_action_queue_size(action_queue_size: list[int]) -> None:
@@ -93,15 +101,15 @@ def resize_robot_observation_image(image: torch.tensor, resize_dims: tuple[int, 
 
 
 def raw_observation_to_observation(
-    raw_observation: RawObservation,
-    lerobot_features: dict[str, dict],
+    raw_observation: RawObservation, 
+    lerobot_features: dict[str, dict], 
     policy_image_features: dict[str, PolicyFeature],
-    device: str,
+    device: str
 ) -> Observation:
     observation = {}
 
-    observation = prepare_raw_observation(raw_observation, lerobot_features, policy_image_features)
-    for k, v in observation.items():
+    raw_observation = prepare_raw_observation(raw_observation, lerobot_features, policy_image_features)
+    for k, v in raw_observation.items():
         if isinstance(v, torch.Tensor):  # VLAs present natural-language instructions in observations
             if "image" in k:
                 # Policy expects images in shape (B, C, H, W)
@@ -122,44 +130,14 @@ def prepare_image(image: torch.Tensor) -> torch.Tensor:
     return image
 
 
-def extract_state_from_raw_observation(
-    lerobot_obs: RawObservation,
-) -> torch.Tensor:
-    """Extract the state from a raw observation."""
-    state = torch.tensor(lerobot_obs[OBS_STATE])
-
-    if state.ndim == 1:
-        state = state.unsqueeze(0)
-
-    return state
-
-
-def extract_images_from_raw_observation(
-    lerobot_obs: RawObservation,
-    camera_key: str,
-) -> dict[str, torch.Tensor]:
-    """Extract the images from a raw observation."""
-    return torch.tensor(lerobot_obs[camera_key])
-
-
-def make_lerobot_observation(
-    robot_obs: RawObservation,
-    lerobot_features: dict[str, dict],
-) -> LeRobotObservation:
-    """Make a lerobot observation from a raw observation."""
-    return build_dataset_frame(lerobot_features, robot_obs, prefix="observation")
-
-
 def prepare_raw_observation(
-    robot_obs: RawObservation,
-    lerobot_features: dict[str, dict],
-    policy_image_features: dict[str, PolicyFeature],
-) -> Observation:
+    robot_obs: RawObservation, lerobot_features: dict[str, dict], policy_image_features: dict[str, PolicyFeature]
+) -> RawObservation:
     """Matches keys from the raw robot_obs dict to the keys expected by a given policy (passed as
     policy_image_features)."""
-    # 1. {motor.pos1:value1, motor.pos2:value2, ..., laptop:np.ndarray} ->
+    # 1. {motor.pos1:value1, motor.pos2:value2, ..., laptop:np.ndarray} -> 
     # -> {observation.state:[value1,value2,...], observation.images.laptop:np.ndarray}
-    lerobot_obs = make_lerobot_observation(robot_obs, lerobot_features)
+    lerobot_obs = build_dataset_frame(lerobot_features, robot_obs, prefix="observation")
 
     # 2. Greps all observation.images.<> keys
     image_keys = list(filter(is_image_key, lerobot_obs))
@@ -169,7 +147,7 @@ def prepare_raw_observation(
         image_k: extract_images_from_raw_observation(lerobot_obs, image_k) for image_k in image_keys
     }
 
-    # Turns the image features to (C, H, W) with H, W matching the policy image features.
+    # Turns the image features to (C, H, W) with H, W matching the policy image features. 
     # This reduces the resolution of the images
     image_dict = {
         key: resize_robot_observation_image(torch.tensor(lerobot_obs[key]), policy_image_features[key].shape)
@@ -310,29 +288,12 @@ def observations_similar(
     obs1: TimedObservation, obs2: TimedObservation, lerobot_features: dict[str, dict], atol: float = 1
 ) -> bool:
     """Check if two observations are similar, under a tolerance threshold. Measures distance between
-    observations as the difference in joint-space between the two observations.
+    observations as the difference in joint-space between the two observations."""
 
-    NOTE(fracapuano): This is a very simple check, and it is enough for the current use case.
-    An immediate next step is to use (fast) perceptual difference metrics comparing some camera views,
-    to surpass this joint-space similarity check.
-    """
-    obs1_state = extract_state_from_raw_observation(
-        make_lerobot_observation(obs1.get_observation(), lerobot_features)
-    )
-    obs2_state = extract_state_from_raw_observation(
-        make_lerobot_observation(obs2.get_observation(), lerobot_features)
-    )
-
-    return bool(_compare_observation_states(obs1_state, obs2_state, atol=atol))
+    return _compare_observation_states(obs1_state, obs2_state, atol=atol)
 
 
-def send_bytes_in_chunks(
-    buffer: bytes,
-    message_class: Any,
-    log_prefix: str = "",
-    silent: bool = True,
-    chunk_size: int = 3 * 1024 * 1024,
-):
+def send_bytes_in_chunks(buffer: bytes, message_class: Any, log_prefix: str = "", silent: bool = True, chunk_size: int = 3*1024*1024):
     # NOTE(fracapuano): Partially copied from lerobot.common.transport.utils.send_bytes_in_chunks. Duplication can't be avoided if we
     # don't use a unique class for messages sent (due to the different transfer states sent). Also, I'd want more control over the
     # chunk size as I am using it to send image observations.
@@ -398,7 +359,7 @@ def receive_bytes_in_chunks(iterator, continue_receiving: Event, log_prefix: str
             bytes_buffer.seek(0)
             bytes_buffer.truncate(0)
             step = 0
-
+            
             logging.debug(f"{log_prefix} Queue updated")
             return complete_bytes
 
