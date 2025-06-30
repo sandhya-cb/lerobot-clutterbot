@@ -85,6 +85,7 @@ from lerobot.robots import (  # noqa: F401
     make_robot_from_config,
     so100_follower,
     so101_follower,
+    dusty
 )
 from lerobot.teleoperators import (  # noqa: F401
     Teleoperator,
@@ -111,6 +112,8 @@ from lerobot.utils.utils import (
     log_say,
 )
 from lerobot.utils.visualization_utils import _init_rerun, log_rerun_data
+
+from .common.teleoperators import koch_leader, so100_leader, so101_leader, gamepad, keyboard  # noqa: F401
 
 
 @dataclass
