@@ -65,5 +65,7 @@ def make_teleoperator_from_config(config: TeleoperatorConfig) -> Teleoperator:
         from .bi_so100_leader import BiSO100Leader
 
         return BiSO100Leader(config)
+    elif config.type == "dusty_leader":
+        from .dusty_leader import dusty_leader
     else:
         raise ValueError(config.type)

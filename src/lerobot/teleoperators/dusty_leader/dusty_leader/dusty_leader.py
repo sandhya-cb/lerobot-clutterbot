@@ -1,0 +1,1 @@
+class dusty_leader

@@ -113,7 +113,7 @@ from lerobot.utils.utils import (
 )
 from lerobot.utils.visualization_utils import _init_rerun, log_rerun_data
 
-from .common.teleoperators import koch_leader, so100_leader, so101_leader, gamepad, keyboard  # noqa: F401
+from .teleoperators import koch_leader, so100_leader, so101_leader, gamepad, keyboard  # noqa: F401
 
 
 @dataclass
@@ -268,20 +268,26 @@ def record_loop(
 
         # Action can eventually be clipped using `max_relative_target`,
         # so action actually sent is saved in the dataset.
-        sent_action = robot.send_action(action)
+        print(robot.name)
+        if (robot.name == "dusty"):
+            action = robot.get_action()
+            print(action)
+        if action:
+            sent_action = robot.send_action(action)
 
-        if dataset is not None:
-            action_frame = build_dataset_frame(dataset.features, sent_action, prefix="action")
-            frame = {**observation_frame, **action_frame}
-            dataset.add_frame(frame, task=single_task)
+            if dataset is not None:
+                print("Adding frame")
+                action_frame = build_dataset_frame(dataset.features, sent_action, prefix="action")
+                frame = {**observation_frame, **action_frame}
+                dataset.add_frame(frame, task=single_task)
 
-        if display_data:
-            log_rerun_data(observation, action)
+            if display_data:
+                log_rerun_data(observation, action)
 
-        dt_s = time.perf_counter() - start_loop_t
-        busy_wait(1 / fps - dt_s)
+            dt_s = time.perf_counter() - start_loop_t
+            busy_wait(1 / fps - dt_s)
 
-        timestamp = time.perf_counter() - start_episode_t
+            timestamp = time.perf_counter() - start_episode_t
 
 
 @parser.wrap()
