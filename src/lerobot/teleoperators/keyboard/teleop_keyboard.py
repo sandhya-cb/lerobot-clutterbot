@@ -89,16 +89,6 @@ class KeyboardTeleop(Teleoperator):
     @check_if_already_connected
     def connect(self) -> None:
         self.is_connected
-        # if PYNPUT_AVAILABLE:
-        #     logging.info("pynput is available - enabling local keyboard listener.")
-        #     self.listener = keyboard.Listener(
-        #         on_press=self._on_press,
-        #         on_release=self._on_release,
-        #     )
-        #     self.listener.start()
-        # else:
-        #     logging.info("pynput not available - skipping local keyboard listener.")
-        #     self.listener = None
 
     def calibrate(self) -> None:
         pass
