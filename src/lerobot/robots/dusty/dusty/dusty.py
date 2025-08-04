@@ -66,10 +66,10 @@ class dusty(Robot):
         return {
             "arm_left_angle": float,
             "arm_right_angle": float,
-            "scoop_lift_angle": float,
+            # "scoop_lift_angle": float,
             "palm_left_angle": float,
             "palm_right_angle": float,
-            "scoop_tilt_angle": float
+            # "scoop_tilt_angle": float
         }
 
     @property   
@@ -147,10 +147,10 @@ class dusty(Robot):
             self._latest_joint_states = {
                 "arm_left_angle": msg.arm_left_angle,
                 "arm_right_angle": msg.arm_right_angle,
-                "scoop_lift_angle": msg.scoop_lift_angle,
+                # "scoop_lift_angle": msg.scoop_lift_angle,
                 "palm_left_angle": msg.palm_left_angle,
                 "palm_right_angle": msg.palm_right_angle,
-                "scoop_tilt_angle": msg.scoop_tilt_angle,
+                # "scoop_tilt_angle": msg.scoop_tilt_angle,
             }
         
     def _htof_callback(self, msg: PointCloud2):
