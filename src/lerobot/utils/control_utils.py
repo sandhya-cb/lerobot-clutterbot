@@ -33,6 +33,12 @@ from lerobot.datasets.utils import DEFAULT_FEATURES
 from lerobot.policies.pretrained import PreTrainedPolicy
 from lerobot.robots import Robot
 
+import sys
+import select
+import termios
+import tty
+import threading
+
 
 def log_control_info(robot: Robot, dt_s, episode_index=None, frame_index=None, fps=None):
     log_items = []
@@ -145,12 +151,31 @@ def init_keyboard_listener():
     events["stop_recording"] = False
 
     if is_headless():
-        logging.warning(
-            "Headless environment detected. On-screen cameras display and keyboard inputs will not be available."
-        )
-        listener = None
-        return listener, events
+        def keyboard_loop():
+            fd = sys.stdin.fileno()
+            old_settings = termios.tcgetattr(fd)
+            try:
+                tty.setcbreak(fd)
+                while True:
+                    if select.select([sys.stdin], [], [], 0.1)[0]:
+                        ch = sys.stdin.read(1)
+                        if ch == '\x1b':  # ESC
+                            print("Escape key pressed. Stopping data recording...")
+                            events["stop_recording"] = True
+                            events["exit_early"] = True
+                            break
+                        elif ch == 'r':
+                            print("Pressed 'r' - Rerecord last episode...")
+                            events["rerecord_episode"] = True
+                            events["exit_early"] = True
+                            break
+                        # Arrow keys need more complex handling — optional
+            finally:
+                termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
 
+        listener_thread = threading.Thread(target=keyboard_loop, daemon=True)
+        listener_thread.start()
+        return listener_thread, events
     # Only import pynput if not in a headless environment
     from pynput import keyboard
 
