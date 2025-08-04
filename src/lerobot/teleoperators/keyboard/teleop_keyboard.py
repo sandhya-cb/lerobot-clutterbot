@@ -74,28 +74,14 @@ class KeyboardTeleop(Teleoperator):
 
     @property
     def is_connected(self) -> bool:
-        return PYNPUT_AVAILABLE and isinstance(self.listener, keyboard.Listener) and self.listener.is_alive()
+        return True #PYNPUT_AVAILABLE and isinstance(self.listener, keyboard.Listener) and self.listener.is_alive()
 
     @property
     def is_calibrated(self) -> bool:
         pass
 
     def connect(self) -> None:
-        if self.is_connected:
-            raise DeviceAlreadyConnectedError(
-                "Keyboard is already connected. Do not run `robot.connect()` twice."
-            )
-
-        if PYNPUT_AVAILABLE:
-            logging.info("pynput is available - enabling local keyboard listener.")
-            self.listener = keyboard.Listener(
-                on_press=self._on_press,
-                on_release=self._on_release,
-            )
-            self.listener.start()
-        else:
-            logging.info("pynput not available - skipping local keyboard listener.")
-            self.listener = None
+        self.is_connected
 
     def calibrate(self) -> None:
         pass
