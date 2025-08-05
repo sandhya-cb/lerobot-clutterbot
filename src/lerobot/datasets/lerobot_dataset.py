@@ -883,7 +883,16 @@ class LeRobotDataset(torch.utils.data.Dataset):
             self.episode_buffer = self.create_episode_buffer()
 
     def _save_episode_table(self, episode_buffer: dict, episode_index: int) -> None:
+        def to_python_types(obj):
+            if isinstance(obj, dict):
+                return {k: to_python_types(v) for k, v in obj.items()}
+            elif isinstance(obj, list):
+                return [to_python_types(v) for v in obj]
+            elif isinstance(obj, np.generic):
+                return obj.item()
+            return obj
         episode_dict = {key: episode_buffer[key] for key in self.hf_features}
+        episode_dict = to_python_types(episode_dict)
         ep_dataset = datasets.Dataset.from_dict(episode_dict, features=self.hf_features, split="train")
         ep_dataset = embed_images(ep_dataset)
         self.hf_dataset = concatenate_datasets([self.hf_dataset, ep_dataset])
