@@ -157,7 +157,7 @@ class dusty(Robot):
         with self.lock:
             pc_array = point_cloud2.read_points_numpy(msg)
             self._latest_htof = [
-                {"x": float(p["x"]), "y": float(p["y"]), "z": float(p["z"])}
+                {"x": float(p[0]), "y": float(p[1]), "z": float(p[2])}
                 for p in pc_array]
 
 
