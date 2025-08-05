@@ -156,7 +156,9 @@ class dusty(Robot):
     def _htof_callback(self, msg: PointCloud2):
         with self.lock:
             pc_array = point_cloud2.read_points_numpy(msg)
-            self._latest_htof = pc_array
+            self._latest_htof = [
+                {"x": float(p["x"]), "y": float(p["y"]), "z": float(p["z"])}
+                for p in pc_array]
 
 
     def _camera_callback(self, msg: Image):
