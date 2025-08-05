@@ -145,11 +145,11 @@ class dusty(Robot):
 
         with self.lock:
             self._latest_joint_states = {
-                "arm_left_angle": msg.arm_left_angle,
-                "arm_right_angle": msg.arm_right_angle,
+                "arm_left_angle": float(msg.arm_left_angle),
+                "arm_right_angle": float(msg.arm_right_angle),
                 # "scoop_lift_angle": msg.scoop_lift_angle,
-                "palm_left_angle": msg.palm_left_angle,
-                "palm_right_angle": msg.palm_right_angle,
+                "palm_left_angle": float(msg.palm_left_angle),
+                "palm_right_angle": float(msg.palm_right_angle),
                 # "scoop_tilt_angle": msg.scoop_tilt_angle,
             }
         
@@ -210,7 +210,7 @@ class dusty(Robot):
                 msg = ActuatorDiag()
                 msg.actuator_id = self.get_joint_id(joint_name)
                 # print(joint_value.item())
-                msg.current_position = joint_value
+                msg.current_position = float(joint_value)
 
                 self.action_publisher.publish(msg)
 
