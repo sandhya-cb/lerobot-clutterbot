@@ -93,7 +93,7 @@ class WandBLogger:
             resume="never" #if cfg.resume else None,
             # mode=self.cfg.mode if self.cfg.mode in ["online", "offline", "disabled"] else "online",
         )
-        run_id = wandb.run.name
+        run_id = wandb.name
         # NOTE: We will override the cfg.wandb.run_id with the wandb run id.
         # This is because we want to be able to resume the run from the wandb run id.
         # cfg.wandb.run_id = run_id
