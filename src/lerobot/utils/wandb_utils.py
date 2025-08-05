@@ -68,7 +68,7 @@ class WandBLogger:
 
         # Set up WandB.
         os.environ["WANDB_SILENT"] = "True"
-        import wandb
+        import trackio as wandb
 
         wandb_run_id = (
             cfg.wandb.run_id
@@ -78,20 +78,20 @@ class WandBLogger:
             else None
         )
         wandb.init(
-            id=wandb_run_id,
+            # name=wandb_run_id,
             project=self.cfg.project,
-            entity=self.cfg.entity,
+            # entity=self.cfg.entity,
             name=self.job_name,
-            notes=self.cfg.notes,
-            tags=cfg_to_group(cfg, return_list=True),
-            dir=self.log_dir,
+            # notes=self.cfg.notes,
+            # tags=cfg_to_group(cfg, return_list=True),
+            # dir=self.log_dir,
             config=cfg.to_dict(),
             # TODO(rcadene): try set to True
-            save_code=False,
+            # save_code=False,
             # TODO(rcadene): split train and eval, and run async eval with job_type="eval"
-            job_type="train_eval",
-            resume="must" if cfg.resume else None,
-            mode=self.cfg.mode if self.cfg.mode in ["online", "offline", "disabled"] else "online",
+            # job_type="train_eval",
+            resume="must" #if cfg.resume else None,
+            # mode=self.cfg.mode if self.cfg.mode in ["online", "offline", "disabled"] else "online",
         )
         run_id = wandb.run.id
         # NOTE: We will override the cfg.wandb.run_id with the wandb run id.
