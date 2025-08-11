@@ -18,6 +18,7 @@ from ... import Robot
 from ..dusty_config import DustyConfig
 from dataclasses import dataclass
 from rclpy.callback_groups import ReentrantCallbackGroup
+from rclpy.executors import MultiThreadedExecutor
 
 class dusty(Robot):
     """
@@ -32,13 +33,20 @@ class dusty(Robot):
         # This is for LeRobot's internal camera handling. If you get images
         # from ROS, you might not need it, but it's good to keep.
         # self.cameras = make_cameras_from_configs(config.cameras)
-        self.cameras = make_cameras_from_configs({"camera": ROS2CameraConfig(
-        topic=config.camera_topic,
-        fps=30,
-        width=640,
-        height=480,
-        rotation=90  # Optional rotation
-        )})
+        self.cameras = make_cameras_from_configs({"camera_raw": ROS2CameraConfig(
+        topic=config.camera_raw_topic
+        ), 
+        "camera_segmented": ROS2CameraConfig(
+        topic=config.camera_segmented_topic,
+        channels=3
+        ),
+        "rs_camera_depth": ROS2CameraConfig(
+                    topic="/rs/depth/image_rect_raw",
+                    fps=30,
+                    width=640,
+                    height=480,
+                    channels=1,
+                ), })
                 
 
         # Initialize ROS2 infrastructure
@@ -49,7 +57,7 @@ class dusty(Robot):
 
         # --- Internal state variables to hold the latest data from ROS topics ---
         self._latest_joint_states: Optional[dict] = None
-        self._latest_camera_image: Optional[Any] = None
+        # self._latest_camera_image: Optional[Any] = None
         self._latest_detections: Optional[int] = None
         self._latest_htof: Optional[Any] = None
         # self._latest_overcurrent: Optional[dict] = None
@@ -74,7 +82,7 @@ class dusty(Robot):
 
     @property   
     def camera_states(self) -> dict[str, tuple]:
-        return {"cam": (320, 320, 3)}
+        return {"camera_raw": (640, 852, 3), "camera_segmented": (320, 320, 1)}
     
     @property 
     def detections(self) -> dict[str, type]:
@@ -105,14 +113,16 @@ class dusty(Robot):
              # Already initialized
             pass
         self.node = Node(f"{self.name}_lerobot_interface")
-        self.configure() # Set up subscribers/publishers
+        self.configure() # Set up subscribers/pub  lishers
+        self.executor = MultiThreadedExecutor()
+        self.executor.add_node(self.node)
 
         # Start spinning the node in a background thread to receive messages
-        self.executor_thread = Thread(target=rclpy.spin, args=(self.node,), daemon=False)
+        self.executor_thread = Thread(target=self.executor.spin, daemon=False)
         self.executor_thread.start()
           # Wait for innitial msg
         self.node.get_logger().info("Waiting for initiasl msg.")
-        while self._latest_joint_states is None or self._latest_camera_image is None or self._latest_htof is None:
+        while self._latest_joint_states is None or self._latest_htof is None:
             time.sleep(0.1)
             
         self.node.get_logger().info("ROS2 publishers and subscribers configured.")
@@ -122,16 +132,18 @@ class dusty(Robot):
         """This function sets up all ROS2 subscribers and publishers."""
         # --- Publishers ---
         self.action_publisher = self.node.create_publisher(
-            ActuatorDiag, self.config.action_topic, 10
+            ActuatorDiag, self.config.action_topic, 30
         )
 
         # --- Subscribers ---
         self.joint_state_subscriber = self.node.create_subscription(
             ActuatorFeedback, self.config.joint_states_topic, self._joint_state_callback, 10
         )
-        self.camera_subscriber = self.node.create_subscription(
-            Image, self.config.camera_topic, self._camera_callback, 10
-        )
+        # self.camera_subscriber = self.node.create_subscription(
+        #     Image, self.config.camera_topic, self._camera_callback, 10
+        # )
+        for key, _ in self.cameras.items():
+            self.cameras[key].connect()
         self.detection_subscriber = self.node.create_subscription(
             Int32, self.config.detections_topic, self._detections_callback, 10
         )
@@ -161,12 +173,12 @@ class dusty(Robot):
                 for p in pc_array]
 
 
-    def _camera_callback(self, msg: Image):
-        """Callback to update the latest camera image."""
+    # def _camera_callback(self, msg: Image):
+    #     """Callback to update the latest camera image."""
         
-        with self.lock:
-            # Convert ROS Image message to a NumPy array
-            self._latest_camera_image = self.bridge.imgmsg_to_cv2(msg, "bgr8")
+    #     with self.lock:
+    #         # Convert ROS Image message to a NumPy array
+    #         self._latest_camera_image = self.bridge.imgmsg_to_cv2(msg, "bgr8")
 
     def _detections_callback(self, msg: Int32):
         """Callback to update the latest detections."""
@@ -181,15 +193,16 @@ class dusty(Robot):
         """
         with self.lock:
             # Check if all required data has been received at least once
-            if self._latest_joint_states is None or self._latest_camera_image is None: #or self._latest_detections is None:
-                # You might want to wait a bit here on the first call
-                # or raise an error if data isn't arriving.
-                raise RuntimeError("Waiting for first ROS2 messages to arrive. Check topics.")
+            # if self._latest_joint_states is None or self._latest_camera_image is None: #or self._latest_detections is None:
+            #     # You might want to wait a bit here on the first call
+            #     # or raise an error if data isn't arriving.
+            #     raise RuntimeError("Waiting for first ROS2 messages to arrive. Check topics.")
 
             # Create a copy of the data to avoid issues outside the lock
             obs_dict = {
                 **self._latest_joint_states,
-                "cam": self._latest_camera_image.copy(),
+                "camera_raw": self.cameras["camera_raw"].async_read(),
+                "camera_segmented": self.cameras["camera_segmented"].async_read(),
                 "htof": self._latest_htof.copy(),
                 "detections": self._latest_detections,
             }
@@ -202,6 +215,7 @@ class dusty(Robot):
         if self.action_publisher is None:
             self.node.get_logger().warn("Action publisher is not initialized.")
             return action
+        print("Action generated!")
 
             # Create a ROS2 JointState message from the action dictionary
             # The action dictionary keys must match the joint names

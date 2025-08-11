@@ -12,7 +12,8 @@ class DustyConfig(RobotConfig):
     name: str = "dusty"
     joint_states_topic: str = "/actuator_feedback"
     action_topic: str = "/leader/actuator_diag"
-    camera_topic: str = "/camera_0/detection/image_overlay"
+    camera_segmented_topic: str = "/camera_0/detection/image_overlay"
+    camera_raw_topic: str = "/camera_0/image_raw"
     detections_topic: str = "/object_detections"
     # Add other topics as needed
     htof_topic: str = "/depth_cloud"

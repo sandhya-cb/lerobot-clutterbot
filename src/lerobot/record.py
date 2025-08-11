@@ -247,6 +247,7 @@ def record_loop(
                 robot_type=robot.robot_type,
             )
             action = {key: action_values[i].item() for i, key in enumerate(robot.action_features)}
+            print("Generated this:", action)
         elif policy is None and isinstance(teleop, Teleoperator):
             action = teleop.get_action()
         elif policy is None and isinstance(teleop, list):
@@ -268,10 +269,10 @@ def record_loop(
 
         # Action can eventually be clipped using `max_relative_target`,
         # so action actually sent is saved in the dataset.
-        print(robot.name)
-        if (robot.name == "dusty"):
+        # print(robot.name)
+        if (robot.name == "dusty" and policy is None):
             action = robot.get_action()
-            print(action)
+            print("Reading action", action)
         if action:
             sent_action = robot.send_action(action)
 

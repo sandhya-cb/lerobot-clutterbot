@@ -194,7 +194,7 @@ class ROS2Camera(Camera):
             raise DeviceNotConnectedError(f"{self} is not connected.")
 
         # Wait for a new frame to be delivered by the subscription callback
-        if not self.new_frame_event.wait(timeout=1.0):  # 1-second timeout for a frame
+        if not self.new_frame_event.wait(timeout=5.0):  # 1-second timeout for a frame
             raise TimeoutError(f"Timed out waiting for a new frame from {self}.")
 
         with self.frame_lock:
