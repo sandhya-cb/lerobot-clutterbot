@@ -18,6 +18,6 @@ class DustyConfig(RobotConfig):
     # Add other topics as needed
     htof_topic: str = "/depth_cloud"
     # overcurrent_topic: str = "/motor_currents"
-
+    depth_img_topic: str = "/htof_depth_img"
     # LeRobot camera configs (can be empty if handled by ROS)
     cameras: dict[str, CameraConfig] = field(default_factory=dict)

@@ -34,17 +34,21 @@ class dusty(Robot):
         # from ROS, you might not need it, but it's good to keep.
         # self.cameras = make_cameras_from_configs(config.cameras)
         self.cameras = make_cameras_from_configs({"camera_raw": ROS2CameraConfig(
-        topic=config.camera_raw_topic
+            fps=10,
+        topic=config.camera_raw_topic,
+        rotation=180
         ), 
         "camera_segmented": ROS2CameraConfig(
+            fps=10,
         topic=config.camera_segmented_topic,
-        channels=3
+        channels=3,
+        rotation=180
         ),
         "rs_camera_depth": ROS2CameraConfig(
-                    topic="/rs/depth/image_rect_raw",
-                    fps=30,
-                    width=640,
-                    height=480,
+                    topic= config.depth_img_topic,
+                    fps=10,
+                    width=109,
+                    height=224,
                     channels=1,
                 ), })
                 
@@ -82,7 +86,7 @@ class dusty(Robot):
 
     @property   
     def camera_states(self) -> dict[str, tuple]:
-        return {"camera_raw": (640, 852, 3), "camera_segmented": (320, 320, 1)}
+        return {"camera_raw": (640, 852, 3), "camera_segmented": (320, 320, 1), "camera_depth": (109, 224, 1)}
     
     @property 
     def detections(self) -> dict[str, type]:
@@ -95,7 +99,7 @@ class dusty(Robot):
     @property
     def observation_features(self) -> dict:
         # Assuming you will add the other properties back in
-        return {**self.joint_states, **self.camera_states, **self.detections}
+        return {**self.joint_states, **self.camera_states}
     
     @property
     def action_features(self) -> dict:
@@ -203,8 +207,8 @@ class dusty(Robot):
                 **self._latest_joint_states,
                 "camera_raw": self.cameras["camera_raw"].async_read(),
                 "camera_segmented": self.cameras["camera_segmented"].async_read(),
-                "htof": self._latest_htof.copy(),
-                "detections": self._latest_detections,
+                "camera_depth": self.cameras["rs_camera_depth"].async_read()
+                # "detections": self._latest_detections,
             }
         return obs_dict
 

@@ -590,6 +590,35 @@ class LeRobotDataset(torch.utils.data.Dataset):
             fpaths += video_files
 
         return fpaths
+    
+    def mean_episode_length(self, in_seconds=True):
+        """
+        Calculate the mean episode length for this dataset.
+
+        Args:
+            in_seconds (bool): If True, return the mean length in seconds instead of frames.
+
+        Returns:
+            float: Mean episode length (frames or seconds).
+        """
+        import numpy as np
+
+        # dataset.episode_data_index is usually a list of (start_idx, end_idx) pairs
+        if not hasattr(self, "episode_data_index") or not self.episode_data_index:
+            raise ValueError("No episode index found. This dataset may be empty or uninitialized.")
+
+        episode_lengths = [(end - start) for start, end in self.episode_data_index]
+
+        mean_len = np.mean(episode_lengths)
+
+        if in_seconds:
+            fps = getattr(self.meta, "fps", None)
+            if fps is None:
+                raise ValueError("FPS not found in dataset.meta; cannot convert to seconds.")
+            return mean_len / fps
+
+        return mean_len
+
 
     def load_hf_dataset(self) -> datasets.Dataset:
         """hf_dataset contains all the observations, states, actions, rewards, etc."""
@@ -762,6 +791,29 @@ class LeRobotDataset(torch.utils.data.Dataset):
             write_image(image, fpath)
         else:
             self.image_writer.save_image(image=image, fpath=fpath)
+    
+    def check_set(self):
+        video_files = list(self.root.rglob("*.mp4"))
+        print(len(video_files))
+        print(self.num_episodes, len(self.meta.video_keys), self.num_episodes * len(self.meta.video_keys))
+        root = Path(self.root)
+        video_keys = self.meta.video_keys  # ['camera1', 'camera2', 'camera3'] for example
+        episode_dirs = sorted([p for p in root.iterdir() if p.is_dir()])
+
+        missing = []
+
+        for ep in episode_dirs:
+            for key in video_keys:
+                expected_video = ep / f"{key}.mp4"
+                if not expected_video.exists():
+                    missing.append(expected_video)
+
+        if missing:
+            print("Missing videos:")
+            for m in missing:
+                print(m)
+        else:
+            print("No missing videos.")
 
     def add_frame(self, frame: dict, task: str, timestamp: float | None = None) -> None:
         """

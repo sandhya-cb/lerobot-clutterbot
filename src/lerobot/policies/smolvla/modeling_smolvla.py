@@ -493,6 +493,10 @@ class SmolVLAPolicy(PreTrainedPolicy):
         # Preprocess image features present in the batch
         for key in present_img_keys:
             img = batch[key][:, -1, :, :, :] if batch[key].ndim == 5 else batch[key]
+
+            if img.shape[1] == 1:  # [B,1,H,W] → [B,3,H,W]
+                img = img.repeat(1, 3, 1, 1)
+                
             if self.config.resize_imgs_with_padding is not None:
                 img = resize_with_pad(img, *self.config.resize_imgs_with_padding, pad_value=0)
 

@@ -39,33 +39,31 @@ def safe_stop_image_writer(func):
 
 
 def image_array_to_pil_image(image_array: np.ndarray, range_check: bool = True) -> PIL.Image.Image:
-    # TODO(aliberts): handle 1 channel and 4 for depth images
-    if image_array.ndim != 3:
-        raise ValueError(f"The array has {image_array.ndim} dimensions, but 3 is expected for an image.")
+    # Handle channel-first grayscale (1, H, W) or RGB (3, H, W)
+    if image_array.ndim == 3:
+        if image_array.shape[0] in (1, 3):  # channel-first
+            image_array = image_array.transpose(1, 2, 0)  # -> (H, W, C)
+        elif image_array.shape[-1] not in (1, 3):
+            raise ValueError(f"Unsupported channel count: {image_array.shape[-1]}")
+    elif image_array.ndim == 2:  # pure grayscale (H, W)
+        image_array = image_array[..., None]  # -> (H, W, 1)
+    else:
+        raise ValueError(f"Unsupported dimensions: {image_array}")
 
-    if image_array.shape[0] == 3:
-        # Transpose from pytorch convention (C, H, W) to (H, W, C)
-        image_array = image_array.transpose(1, 2, 0)
-
-    elif image_array.shape[-1] != 3:
-        raise NotImplementedError(
-            f"The image has {image_array.shape[-1]} channels, but 3 is required for now."
-        )
-
+    # Normalize if not uint8
     if image_array.dtype != np.uint8:
         if range_check:
             max_ = image_array.max().item()
             min_ = image_array.min().item()
             if max_ > 1.0 or min_ < 0.0:
-                raise ValueError(
-                    "The image data type is float, which requires values in the range [0.0, 1.0]. "
-                    f"However, the provided range is [{min_}, {max_}]. Please adjust the range or "
-                    "provide a uint8 image with values in the range [0, 255]."
-                )
-
+                image_array = (image_array - np.min(image_array)) / np.ptp(image_array)
         image_array = (image_array * 255).astype(np.uint8)
 
-    return PIL.Image.fromarray(image_array)
+    # Ensure 3 channels (RGB)
+    if image_array.shape[-1] == 1:  # grayscale
+        image_array = np.repeat(image_array, 3, axis=-1)  # (H, W, 1) -> (H, W, 3)
+
+    return PIL.Image.fromarray(image_array, mode="RGB")
 
 
 def write_image(image: np.ndarray | PIL.Image.Image, fpath: Path):

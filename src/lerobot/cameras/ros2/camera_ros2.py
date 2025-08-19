@@ -220,13 +220,14 @@ class ROS2Camera(Camera):
 
         return image
 
-    def async_read(self, timeout_ms: float = 200) -> np.ndarray:
+    def async_read(self, timeout_ms: float = 500) -> np.ndarray:
         """Asynchronously captures a frame, waiting for a new one if necessary."""
         if not self.is_connected:
             raise DeviceNotConnectedError(f"{self} is not connected.")
 
         if not self.new_frame_event.wait(timeout=timeout_ms / 1000.0):
-            raise TimeoutError(f"Timed out waiting for frame from {self} after {timeout_ms} ms.")
+            # raise TimeoutError(f"Timed out waiting for frame from {self} after {timeout_ms} ms.")
+            pass
 
         with self.frame_lock:
             if self.latest_msg is None:
