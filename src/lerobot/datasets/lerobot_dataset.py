@@ -1154,6 +1154,30 @@ class LeRobotDataset(torch.utils.data.Dataset):
             write_image(image, fpath, compress_level=compress_level)
         else:
             self.image_writer.save_image(image=image, fpath=fpath, compress_level=compress_level)
+            # self.image_writer.save_image(image=image, fpath=fpath)
+    
+    def check_set(self):
+        video_files = list(self.root.rglob("*.mp4"))
+        print(len(video_files))
+        print(self.num_episodes, len(self.meta.video_keys), self.num_episodes * len(self.meta.video_keys))
+        root = Path(self.root)
+        video_keys = self.meta.video_keys  # ['camera1', 'camera2', 'camera3'] for example
+        episode_dirs = sorted([p for p in root.iterdir() if p.is_dir()])
+
+        missing = []
+
+        for ep in episode_dirs:
+            for key in video_keys:
+                expected_video = ep / f"{key}.mp4"
+                if not expected_video.exists():
+                    missing.append(expected_video)
+
+        if missing:
+            print("Missing videos:")
+            for m in missing:
+                print(m)
+        else:
+            print("No missing videos.")
 
     
     def check_set(self):

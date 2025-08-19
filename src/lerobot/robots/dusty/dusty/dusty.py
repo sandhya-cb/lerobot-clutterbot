@@ -36,13 +36,21 @@ class dusty(Robot):
         self.cameras = make_cameras_from_configs({"camera_raw": ROS2CameraConfig(
             fps=10,
         topic=config.camera_raw_topic,
+<<<<<<< HEAD
         # rotation=180
+=======
+        rotation=180
+>>>>>>> 27285650 (Added support for 2 channel images during training smolvla)
         ), 
         "camera_segmented": ROS2CameraConfig(
             fps=10,
         topic=config.camera_segmented_topic,
         channels=3,
+<<<<<<< HEAD
         # rotation=180
+=======
+        rotation=180
+>>>>>>> 27285650 (Added support for 2 channel images during training smolvla)
         ),
         "rs_camera_depth": ROS2CameraConfig(
                     topic= config.depth_img_topic,
