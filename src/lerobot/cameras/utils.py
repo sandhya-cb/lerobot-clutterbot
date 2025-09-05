@@ -40,8 +40,14 @@ def make_cameras_from_configs(camera_configs: dict[str, CameraConfig]) -> dict[s
         elif cfg.type == "ros2":
             from .ros2.camera_ros2 import ROS2Camera
             cameras[key] = ROS2Camera(cfg)
+
+        elif cfg.type == "reachy2_camera":
+            from .reachy2_camera.reachy2_camera import Reachy2Camera
+
+            cameras[key] = Reachy2Camera(cfg)
+
         else:
-            raise ValueError(f"The motor type '{cfg.type}' is not valid.")
+            raise ValueError(f"The camera type '{cfg.type}' is not valid.")
 
     return cameras
 
