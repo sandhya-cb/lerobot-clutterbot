@@ -286,11 +286,10 @@ def record_loop(
         if action:
             sent_action = robot.send_action(action)
 
-            if dataset is not None:
-                print("Adding frame")
-                action_frame = build_dataset_frame(dataset.features, sent_action, prefix="action")
-                frame = {**observation_frame, **action_frame}
-                dataset.add_frame(frame, task=single_task)
+        if dataset is not None:
+            action_frame = build_dataset_frame(dataset.features, sent_action, prefix="action")
+            frame = {**observation_frame, **action_frame, "task": single_task}
+            dataset.add_frame(frame)
 
             if display_data:
                 log_rerun_data(observation, action)
