@@ -62,6 +62,7 @@ from lerobot.robots import (  # noqa: F401
     dusty
 )
 from lerobot.utils.constants import ACTION
+from lerobot.utils.import_utils import register_third_party_devices
 from lerobot.utils.robot_utils import busy_wait
 from lerobot.utils.utils import (
     init_logging,
@@ -127,6 +128,7 @@ def replay(cfg: ReplayConfig):
 
 
 def main():
+    register_third_party_devices()
     replay()
 
 
