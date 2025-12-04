@@ -36,13 +36,13 @@ class dusty(Robot):
         self.cameras = make_cameras_from_configs({"camera_raw": ROS2CameraConfig(
             fps=10,
         topic=config.camera_raw_topic,
-        rotation=180
+        # rotation=180
         ), 
         "camera_segmented": ROS2CameraConfig(
             fps=10,
         topic=config.camera_segmented_topic,
         channels=3,
-        rotation=180
+        # rotation=180
         ),
         "rs_camera_depth": ROS2CameraConfig(
                     topic= config.depth_img_topic,
@@ -86,7 +86,7 @@ class dusty(Robot):
 
     @property   
     def camera_states(self) -> dict[str, tuple]:
-        return {"camera_raw": (640, 852, 3), "camera_segmented": (320, 320, 1), "camera_depth": (109, 224, 1)}
+        return {"camera_raw": (640, 852, 3), "camera_segmented": (320, 320, 3), "camera_depth": (109, 224, 3)}
     
     @property 
     def detections(self) -> dict[str, type]:

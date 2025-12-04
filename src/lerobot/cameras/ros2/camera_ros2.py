@@ -208,15 +208,16 @@ class ROS2Camera(Camera):
 
     def _postprocess_image(self, msg: ImageMsg, color_mode: ColorMode | None) -> np.ndarray:
         """Applies color conversion and rotation to a raw message frame."""
-        # Use config's encoding. The color_mode arg from base class is ignored
-        # as ROS publishers define their own encoding.
         image = self._cv_bridge.imgmsg_to_cv2(msg, self.config.encoding)
 
         if self.rotation is not None:
             image = cv2.rotate(image, self.rotation)
 
-        if len(image.shape) == 2:
-            image = image[:, :, np.newaxis]
+        # Expand grayscale to 3 channels so pretrained models (expecting RGB) work
+        if len(image.shape) == 2:  # H x W
+            image = np.stack([image, image, image], axis=-1)
+        elif image.shape[-1] == 1:  # H x W x 1
+            image = np.repeat(image, 3, axis=-1)
 
         return image
 
