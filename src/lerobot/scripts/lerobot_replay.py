@@ -62,6 +62,7 @@ from lerobot.robots import (  # noqa: F401
     so100_follower,
     so101_follower,
     dusty
+    so_follower,
 )
 from lerobot.utils.constants import ACTION
 from lerobot.utils.import_utils import register_third_party_plugins
