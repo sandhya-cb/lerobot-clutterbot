@@ -73,8 +73,8 @@ def make_teleoperator_from_config(config: TeleoperatorConfig) -> Teleoperator:
         from .homunculus import HomunculusArm
 
         return HomunculusArm(config)
-    elif config.type == "bi_so100_leader":
-        from .bi_so100_leader import BiSO100Leader
+    elif config.type == "bi_so_leader":
+        from .bi_so_leader import BiSOLeader
 
         return BiSO100Leader(config)
     elif config.type == "dusty_leader":
