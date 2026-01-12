@@ -62,6 +62,7 @@ from lerobot.robots import (  # noqa: F401
     so100_follower,
     so101_follower,
     dusty
+    reachy2,
     so_follower,
     unitree_g1,
 )
