@@ -35,7 +35,8 @@ from ..configs import CameraConfig, ColorMode, Cv2Rotation
 from ..camera import Camera
 from lerobot.common.errors import DeviceAlreadyConnectedError, DeviceNotConnectedError
 from .configuration_ros2 import ROS2CameraConfig
-from lerobot.common.utils.utils import capture_timestamp_utc
+# from lerobot.common.utils.utils import capture_timestamp_utc
+import time
 
 logger = logging.getLogger(__name__)
 

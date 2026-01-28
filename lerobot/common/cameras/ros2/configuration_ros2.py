@@ -22,7 +22,8 @@ from lerobot.common.errors import DeviceAlreadyConnectedError
 
 from ..configs import CameraConfig, ColorMode, Cv2Rotation
 
-from lerobot.common.utils.utils import capture_timestamp_utc
+# from lerobot.common.utils.utils import capture_timestamp_utc
+import time
 from dataclasses import dataclass
 
 @CameraConfig.register_subclass("ros2")
@@ -343,7 +344,7 @@ class ROS2Camera:
         self.logs["delta_timestamp_s"] = time.perf_counter() - start_time
 
         # log the utc time at which the image was received
-        self.logs["timestamp_utc"] = capture_timestamp_utc()
+        self.logs["timestamp_utc"] = time.time() #capture_timestamp_utc()
 
         return image
 

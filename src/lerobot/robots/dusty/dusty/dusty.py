@@ -52,13 +52,14 @@ class dusty(Robot):
         rotation=180
 >>>>>>> 27285650 (Added support for 2 channel images during training smolvla)
         ),
-        "rs_camera_depth": ROS2CameraConfig(
-                    topic= config.depth_img_topic,
-                    fps=10,
-                    width=109,
-                    height=224,
-                    channels=1,
-                ), })
+        # "rs_camera_": ROS2CameraConfig(
+        #             topic= config.depth_img_topic,
+        #             fps=10,
+        #             width=109,
+        #             height=224,
+        #             channels=1,
+        #         ), 
+        })
                 
 
         # Initialize ROS2 infrastructure
@@ -94,7 +95,7 @@ class dusty(Robot):
 
     @property   
     def camera_states(self) -> dict[str, tuple]:
-        return {"camera_raw": (640, 852, 3), "camera_segmented": (320, 320, 3), "camera_depth": (109, 224, 3)}
+        return {"camera_raw": (640, 852, 3), "camera_segmented": (320, 320, 3)} #, "camera_depth": (109, 224, 3)}
     
     @property 
     def detections(self) -> dict[str, type]:
@@ -159,10 +160,10 @@ class dusty(Robot):
         self.detection_subscriber = self.node.create_subscription(
             Int32, self.config.detections_topic, self._detections_callback, 10
         )
-        self.htof_group = ReentrantCallbackGroup()
-        self.htof_subscriber = self.node.create_subscription(
-            PointCloud2, self.config.htof_topic, self._htof_callback, 10, callback_group=self.htof_group
-        )
+        # self.htof_group = ReentrantCallbackGroup()
+        # self.htof_subscriber = self.node.create_subscription(
+        #     PointCloud2, self.config.htof_topic, self._htof_callback, 10, callback_group=self.htof_group
+        # )
       
 
     def _joint_state_callback(self, msg: ActuatorFeedback):
@@ -215,7 +216,7 @@ class dusty(Robot):
                 **self._latest_joint_states,
                 "camera_raw": self.cameras["camera_raw"].async_read(),
                 "camera_segmented": self.cameras["camera_segmented"].async_read(),
-                "camera_depth": self.cameras["rs_camera_depth"].async_read()
+                # "camera_depth": self.cameras["rs_camera_depth"].async_read()
                 # "detections": self._latest_detections,
             }
         return obs_dict

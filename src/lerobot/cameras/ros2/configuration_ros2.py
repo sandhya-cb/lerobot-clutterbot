@@ -18,11 +18,11 @@ import rclpy.subscription
 from cv_bridge import CvBridge
 from PIL import Image
 from sensor_msgs.msg import Image as ImageMsg
-from lerobot.errors import DeviceAlreadyConnectedError
+# from lerobot.errors import DeviceAlreadyConnectedError
 
 from ..configs import CameraConfig, ColorMode, Cv2Rotation
 
-from lerobot.utils.utils import capture_timestamp_utc
+# from lerobot.utils.utils import capture_timestamp_utc
 from dataclasses import dataclass
 
 @CameraConfig.register_subclass("ros2")
@@ -297,7 +297,7 @@ class ROS2Camera:
 
     def connect(self):
         if self.is_connected:
-            raise DeviceAlreadyConnectedError(f"ROS2Camera({self.config.topic}) is already connected.")
+            print(f"ROS2Camera({self.config.topic}) is already connected.")
 
         rclpy_sub = ROS2Camera.rclpy_node.create_subscription(ImageMsg, self.config.topic, self.sub_cb, 10)
         ROS2Camera.image_subs[self.config.topic] = ROS2Camera.ROS2CameraTopic(rclpy_sub, self.config)
@@ -343,7 +343,7 @@ class ROS2Camera:
         self.logs["delta_timestamp_s"] = time.perf_counter() - start_time
 
         # log the utc time at which the image was received
-        self.logs["timestamp_utc"] = capture_timestamp_utc()
+        self.logs["timestamp_utc"] = time.time() #capture_timestamp_utc()
 
         return image
 

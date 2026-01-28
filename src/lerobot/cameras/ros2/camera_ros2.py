@@ -33,9 +33,10 @@ from sensor_msgs.msg import Image as ImageMsg
 
 from ..configs import CameraConfig, ColorMode, Cv2Rotation
 from ..camera import Camera
-from lerobot.errors import DeviceAlreadyConnectedError, DeviceNotConnectedError
+# from lerobot.errors import DeviceAlreadyConnectedError, DeviceNotConnectedError
 from .configuration_ros2 import ROS2CameraConfig
-from lerobot.utils.utils import capture_timestamp_utc
+# from lerobot.utils.utils import capture_timestamp_utc
+import time
 
 logger = logging.getLogger(__name__)
 
@@ -165,7 +166,7 @@ class ROS2Camera(Camera):
     def connect(self, warmup: bool = True) -> None:
         """Establishes connection to the camera topic."""
         if self.is_connected:
-            raise DeviceAlreadyConnectedError(f"{self} is already connected.")
+            print(f"{self} is already connected.")
 
         self.subscription = self._rclpy_node.create_subscription(
             ImageMsg, self.config.topic, self._sub_cb, 10
